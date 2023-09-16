@@ -34,7 +34,7 @@ app.use(limiter);
 
 
 // database
-let option = { pass: `${process.env.pass}`, autoIndex: true }
+let option = { user: `${process.env.user}`, pass: `${process.env.dbPass}`, autoIndex: true }
 mongoose.connect(`${process.env.db}${process.env.dbName}`, option)
   .then(res => console.log("database connection success"))
   .catch(error => console.log(error))

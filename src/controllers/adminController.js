@@ -1,5 +1,6 @@
 const orderModel = require("../models/orderModel");
 const productModel = require("../models/productModel");
+const siteModel = require("../models/siteModel");
 
 // create product
 exports.createProduct = async (req, res) => {
@@ -205,7 +206,7 @@ exports.update_order = async (req, res) => {
 exports.delete_order = async (req, res) => {
   try {
     let id = req.params.id
-    let deleteOrder = await orderModel.deleteOne({ _id: id }, req.body)
+    let deleteOrder = await orderModel.deleteOne({ _id: id })
 
     res.status(200).json({
       status: 1,
@@ -218,6 +219,27 @@ exports.delete_order = async (req, res) => {
       status: 0,
       code: 200,
       data: "Could not delete product"
+    })
+  }
+}
+
+// order by id
+exports.get_order_by_id = async (req, res) => {
+  try {
+    let id = req.params.id
+    let order = await orderModel.findOne({_id: id})
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: order
+    })
+    
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "Could not fetch product"
     })
   }
 }
@@ -246,7 +268,88 @@ exports.get_all_order = async (req, res) => {
     res.status(200).json({
       status: 0,
       code: 200,
-      data: "Could not delete product"
+      data: "Could not fetch orders"
+    })
+  }
+}
+
+exports.getOrderByState = async (req, res) => {
+  try {
+    let status = req.params.status
+    let allOrder = await orderModel.aggregate([
+      { $match: { status: status } },
+      {
+        $sort: { createAt: -1 }
+      },
+      {
+        $project: {
+          updatedAt: 0,
+        }
+      }
+    ])
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: allOrder
+    })
+
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "Something went wrong"
+    })
+  }
+}
+
+exports.searchBYKeyword = async (req, res) => {
+  try {
+    let keyword = req.params.keyword || ""
+    let SearchRegex = { $regex: keyword, $options: "i" }
+    let SearchParam = [{ customer_number: SearchRegex }, { customer_name: SearchRegex }]
+    let SearchQuery = { $or: SearchParam }
+
+    let matchStage = { $match: SearchQuery };
+
+    let projectStage = {
+      $project: {
+        updatedAt: 0,
+      }
+    }
+
+    let data = await orderModel.aggregate([matchStage, projectStage])
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: data
+    })
+  }
+  catch (e) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "something went wrong"
+    })
+  }
+}
+
+exports.sideData = async (req, res) => {
+  try {
+    let siteUpdate = await siteModel.updateOne({ siteName: "Tuhins Fashion"}, {$set: req.body}, {upsert: true})
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: "site updated"
+    })
+    
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "something went wrong"
     })
   }
 }

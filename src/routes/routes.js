@@ -19,13 +19,19 @@ router.get('/get-product-by-category/:category', verification, adminControls.get
 
 router.post('/order', verification, adminControls.create_order)
 router.post('/order/:id', verification, adminControls.update_order)
-router.post('/delete-order/:id', verification, adminControls.delete_order)
+router.delete('/delete-order/:id', verification, adminControls.delete_order)
 router.get('/get-all-order', verification, adminControls.get_all_order)
+router.get('/get-order/:id', verification, adminControls.get_order_by_id)
+router.get('/get-all-order/:status', verification, adminControls.getOrderByState)
+router.get('/search/:keyword', verification, adminControls.searchBYKeyword)
+
+router.post('/site-data', verification, adminControls.sideData)
 
 // public routes
 router.get('/show-product', userControls.show_product)
 router.get('/show-product-category/:category', userControls.showProductByCategory)
 router.get('/show-product/:category/:id', userControls.showProductById)
+router.get('/web-data', userControls.getSiteData)
 
 
 module.exports = router

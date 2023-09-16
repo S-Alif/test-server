@@ -2,6 +2,7 @@
 const jwt = require('jsonwebtoken')
 const adminModel = require('../models/adminModel')
 const productModel = require('../models/productModel')
+const siteModel = require('../models/siteModel')
 
 // login
 exports.login = async (req, res) => {
@@ -114,6 +115,23 @@ exports.showProductById = async (req, res) => {
     res.status(200).json({
       status: 0,
       data: error
+    })
+  }
+}
+
+exports.getSiteData = async (req, res) => {
+  try {
+    let siteData = await siteModel.findOne({ siteName: "Tuhins Fashion" })
+
+    res.status(200).json({
+      status: 1,
+      data: siteData
+    })
+
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      data: "something went wrong"
     })
   }
 }
