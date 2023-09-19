@@ -28,8 +28,8 @@ router.get('/search/:keyword', verification, adminControls.searchBYKeyword)
 router.post('/site-data', verification, adminControls.sideData)
 
 // public routes
-router.get('/show-product', userControls.show_product)
-router.get('/show-product-category/:category', userControls.showProductByCategory)
+router.get('/show-product/:page', userControls.show_product)
+router.get('/show-product-category/:category/:page', userControls.showProductByCategory)
 router.get('/show-product/:category/:id', userControls.showProductById)
 router.get('/web-data', userControls.getSiteData)
 

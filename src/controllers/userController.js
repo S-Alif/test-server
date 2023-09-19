@@ -41,9 +41,19 @@ exports.login = async (req, res) => {
 // show product
 exports.show_product = async (req, res) => {
   try {
+    let page = req.params.page
+    let skip = (page - 1) * 18
+
+    let total = await productModel.find().count('total')
     let showProduct = await productModel.aggregate([
       {
         $sort: { createdAt: -1 }
+      },
+      {
+        $skip: skip
+      },
+      {
+        $limit: 18,
       },
       {
         $project: {
@@ -58,7 +68,7 @@ exports.show_product = async (req, res) => {
 
     res.status(200).json({
       status: 1,
-      data: showProduct
+      data: showProduct, total
     })
   } catch (error) {
     res.status(200).json({
@@ -71,11 +81,38 @@ exports.show_product = async (req, res) => {
 exports.showProductByCategory = async (req, res) => {
   try {
     let category = req.params.category
-    let showProductByCategory = await productModel.find({category: category}).select("_id productName img feel category price")
+    let page = req.params.page
+    let skip = (page - 1)* 18
+
+    let total = await productModel.find({ category: category }).count('total')
+    let showProductByCategory = await productModel.aggregate([
+      {
+        $match : {category: category}
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $skip: skip
+      },
+      {
+        $limit: 18,
+      },
+      {
+        $project: {
+          updatedAt: 0,
+          otherImg: 0,
+          detail: 0,
+          fabric: 0,
+          createdAt: 0
+        }
+      }
+    ])
     
     res.status(200).json({
       status: 1,
-      data: showProductByCategory
+      data: showProductByCategory,
+      total
     })
   } catch (error) {
     res.status(200).json({
