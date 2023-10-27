@@ -80,44 +80,59 @@ exports.show_product = async (req, res) => {
 
 exports.showProductByCategory = async (req, res) => {
   try {
-    let category = req.params.category
-    let page = req.params.page
-    let skip = (page - 1)* 18
+    let category = { category: req.params.category }
+    let publish = { published: "Yes" }
+    let match = {
+      category: category.category,
+      published: publish.published
+    }
 
-    let total = await productModel.find({ category: category }).count('total')
-    let showProductByCategory = await productModel.aggregate([
-      {
-        $match : {category: category}
-      },
-      {
-        $sort: { createdAt: -1 }
-      },
-      {
-        $skip: skip
-      },
-      {
-        $limit: 18,
-      },
-      {
-        $project: {
-          updatedAt: 0,
-          otherImg: 0,
-          detail: 0,
-          fabric: 0,
-          createdAt: 0
-        }
+    let page = parseInt(req.params.page)
+    let views = parseInt(req.params.views)
+    let limit = parseInt(req.params.limit)
+    let skip = (page - 1) * limit
+
+    let matchStage = { $match: match }
+    let sortStage = { $sort: { createdAt: -1 } }
+    let skipStage = { $skip: skip }
+    let limitStage = { $limit: limit }
+    let projectStage = {
+      $project: {
+        published: 0,
+        updatedAt: 0,
+        otherImg: 0,
+        detail: 0,
+        fabric: 0,
+        feel: 0
       }
-    ])
-    
+    }
+
+    let query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    if (views != 0) {
+      sortStage = { $sort: { views: views } }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+    if (req.params.category === "All") {
+      match = publish
+      matchStage = { $match: match }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+
+    let productTotal = await productModel.find(match).count("total")
+    let product = await productModel.aggregate(query)
+
     res.status(200).json({
       status: 1,
-      data: showProductByCategory,
-      total
+      code: 200,
+      data: product,
+      productTotal
     })
+
   } catch (error) {
     res.status(200).json({
       status: 0,
-      data: error
+      code: 200,
+      data: "Something went wrong"
     })
   }
 }
@@ -126,13 +141,15 @@ exports.showProductById = async (req, res) => {
   try {
     let id = req.params.id
     let category = req.params.category
-
-    let showProductById = await productModel.aggregate([
-      { $match: { $expr: { $eq: ['$_id', { $toObjectId: id }] } } },
-    ])
+    let views = { $inc: { views: 1 } }
+    
+    let updateView = await productModel.updateOne({ _id: req.params.id }, views)
+    let showProductById = await productModel.findOne({ _id: id, published: "Yes" })
     let relatedProducts = await productModel.aggregate([
-      { $match: { category: ""+category } },
-      {$limit: 5},
+      { $match: { category: ""+category, published: "Yes" } },
+      {
+        $sample: { size: 5 }
+      },
       {
         $project:{
           updatedAt: 0,
@@ -143,10 +160,10 @@ exports.showProductById = async (req, res) => {
         }
       }
     ])
-    
+
     res.status(200).json({
       status: 1,
-      data: { showProductById: showProductById[0], relatedProducts }
+      data: { showProductById, relatedProducts }
     })
   } catch (error) {
     res.status(200).json({
@@ -162,12 +179,14 @@ exports.getSiteData = async (req, res) => {
 
     res.status(200).json({
       status: 1,
+      code: 200,
       data: siteData
     })
 
   } catch (error) {
     res.status(200).json({
       status: 0,
+      code: 200,
       data: "something went wrong"
     })
   }

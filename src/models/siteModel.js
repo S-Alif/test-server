@@ -9,6 +9,8 @@ const siteSchema = mongoose.Schema({
   contactMail: {type: String},
   contactLocation: {type: String},
   locationName: {type: String},
+  fbPage: { type: String },
+  whatsApp: { type: String }
 }, {timestamps: true, versionKey: false})
 
 let siteModel = mongoose.model('siteDatas', siteSchema)

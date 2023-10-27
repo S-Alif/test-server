@@ -88,33 +88,98 @@ exports.getProductById = async (req, res) => {
   }
 }
 
-// get all product count
-exports.get_all_data = async (req, res) => {
+// get stock data
+exports.getStockData = async (req, res) => {
   try {
     let borka = await productModel.find({ category: "বোরকা" }).count("total")
     let hijab = await productModel.find({category : "হিজাব"}).count("total")
     let niqab = await productModel.find({category : "নিকাব"}).count("total")
     let allProductCount = await productModel.find().count("total")
-    let allProduct = await productModel.aggregate([
-      {
-        $sort: { createdAt: -1 }
-      },
-      {
-        $project: {
-          updatedAt: 0,
-          img: 0,
-          otherImg: 0,
-          detail: 0,
-          fabric: 0,
-          feel: 0
-        }
-      }
-    ])
-    
+
     res.status(200).json({
       status: 1,
       code: 200,
-      data: { borka, hijab, niqab, allProduct, allProductCount }
+      data: { borka, hijab, niqab, allProductCount }
+    })
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "something went wrong"
+    })
+  }
+}
+
+// get amount data
+exports.getAmountData = async (req, res) => {
+  try {
+    // total order amount
+    let totalOrderAmount = await orderModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalPrice: {$sum : "$total_price"}
+        }
+      },
+      {
+        $project:{
+          _id: 0
+        }
+      }
+    ])
+    // order this month
+    let totalOrderThisMonth = await orderModel.aggregate([
+      {
+        $match: {
+          $expr: {
+            $eq: [{ $month: "$createdAt" }, (new Date().getMonth() + 1)]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalPrice: { $sum: "$total_price" }
+        }
+      },
+      {
+        $project: {
+          _id: 0
+        }
+      }
+    ])    
+    // completed orders
+    let completedOrderThisMonth = await orderModel.aggregate([
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: [{ $month: "$createdAt" }, (new Date().getMonth() + 1)] },
+              { $eq: ["$status", "complete"] } 
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalCompletedOrders: { $sum: 1 },
+          totalAmount: { $sum: "$total_price" }
+        }
+      },
+      {
+        $project: {
+          _id: 0
+        }
+      }
+    ])
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: { order: totalOrderAmount[0], orderThisMonth: totalOrderThisMonth[0], completedOrderMonth: completedOrderThisMonth[0] }
     })
   } catch (error) {
     res.status(200).json({
@@ -128,28 +193,61 @@ exports.get_all_data = async (req, res) => {
 // get product by category
 exports.getProductByCategory = async (req, res) => {
   try {
-    let category = req.params.category || ""
-    let product = await productModel.aggregate([
-      {$match: {category: category}},
-      {
-        $sort: { createdAt: -1 }
-      },
-      {
-        $project:{
-          updatedAt: 0,
-          img: 0,
-          otherImg: 0,
-          detail: 0,
-          fabric: 0,
-          feel: 0
-        }
+    let category = { category: req.params.category }
+    let publish = { published: req.params.publish }
+    let match = {
+      category: category.category,
+      published: publish.published
+    }
+
+    let page = parseInt(req.params.page)
+    let views = parseInt(req.params.views)
+    let limit = parseInt(req.params.limit)
+    let skip = (page - 1) * limit
+
+    let matchStage = { $match: match }
+    let sortStage = { $sort: { createdAt: -1 } }
+    let skipStage = { $skip: skip }
+    let limitStage = { $limit: limit }
+    let projectStage = {
+      $project: {
+        updatedAt: 0,
+        img: 0,
+        otherImg: 0,
+        detail: 0,
+        fabric: 0,
+        feel: 0
       }
-    ])
+    }
+
+    let query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    if (views != 0) {
+      sortStage = { $sort: { views: views } }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+    if (req.params.category === "All"){
+      match = publish
+      matchStage = { $match: match }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+    if (req.params.publish === "All"){
+      match = category
+      matchStage = { $match: match }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+    if (req.params.category === "All" && req.params.publish === "All"){
+      match = {}
+      query = [sortStage, skipStage, limitStage, projectStage]
+    }
+
+    let productTotal = await productModel.find(match).count("total")
+    let product = await productModel.aggregate(query)
 
     res.status(200).json({
       status: 1,
       code: 200,
-      data: product
+      data: product,
+      productTotal
     })
     
   } catch (error) {
@@ -244,54 +342,40 @@ exports.get_order_by_id = async (req, res) => {
   }
 }
 
-// get all order
-exports.get_all_order = async (req, res) => {
-  try {
-    let allOrder = await orderModel.aggregate([
-      {
-        $sort: { createAt: -1 }
-      },
-      {
-        $project: {
-          updatedAt: 0,
-        }
-      }
-    ])
-
-    res.status(200).json({
-      status: 1,
-      code: 200,
-      data: allOrder
-    })
-    
-  } catch (error) {
-    res.status(200).json({
-      status: 0,
-      code: 200,
-      data: "Could not fetch orders"
-    })
-  }
-}
-
 exports.getOrderByState = async (req, res) => {
   try {
-    let status = req.params.status
-    let allOrder = await orderModel.aggregate([
-      { $match: { status: status } },
-      {
-        $sort: { createAt: -1 }
-      },
-      {
-        $project: {
-          updatedAt: 0,
-        }
-      }
-    ])
+    let state = req.params.status
+    let page = parseInt(req.params.page)
+    let limit = parseInt(req.params.limit)
+    let amount = parseInt(req.params.amount)
+    let skip = (page - 1) * limit
+    
+    let match = { status: state }
+    let matchStage = { $match: match }
+    let sortStage = { $sort: { createdAt: -1 } }
+    let skipStage = {$skip: skip}
+    let limitStage = {$limit: limit}
+    let projectStage = {$project: {updatedAt: 0}}
+    let query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+
+    if(amount != 0){
+      sortStage = { $sort: { total_price: amount } }
+      query = [matchStage, sortStage, skipStage, limitStage, projectStage]
+    }
+    if (req.params.status == "All") {
+      match = {}
+      matchStage = {}
+      query = [sortStage, skipStage, limitStage, projectStage]
+    }
+
+    let totalOrder = await orderModel.find(match).count("total")
+    let allOrder = await orderModel.aggregate(query)
 
     res.status(200).json({
       status: 1,
       code: 200,
-      data: allOrder
+      data: allOrder,
+      totalOrder
     })
 
   } catch (error) {
@@ -305,12 +389,19 @@ exports.getOrderByState = async (req, res) => {
 
 exports.searchBYKeyword = async (req, res) => {
   try {
-    let keyword = req.params.keyword || ""
+    let page = parseInt(req.params.page)
+    let limit = parseInt(req.params.limit)
+    let skip = (page - 1) * limit
+
+    let keyword = req.params.keyword
     let SearchRegex = { $regex: keyword, $options: "i" }
     let SearchParam = [{ customer_number: SearchRegex }, { customer_name: SearchRegex }]
     let SearchQuery = { $or: SearchParam }
+    let matchStage = { $match: SearchQuery }
 
-    let matchStage = { $match: SearchQuery };
+    let sortStage = { $sort: { createAt: -1 } }
+    let skipStage = { $skip: skip }
+    let limitStage = { $limit: limit }
 
     let projectStage = {
       $project: {
@@ -318,15 +409,37 @@ exports.searchBYKeyword = async (req, res) => {
       }
     }
 
-    let data = await orderModel.aggregate([matchStage, projectStage])
+    let totalOrder = await orderModel.find(SearchQuery).count('total')
+    let data = await orderModel.aggregate([matchStage,sortStage, skipStage, limitStage, projectStage])
 
     res.status(200).json({
       status: 1,
       code: 200,
-      data: data
+      data: data,
+      totalOrder
     })
   }
   catch (e) {
+    console.log(e)
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "something went wrong"
+    })
+  }
+}
+
+exports.getSiteData = async (req, res) => {
+  try {
+    let siteData = await siteModel.findOne({ siteName: "Tuhins Fashion"})
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: siteData
+    })
+    
+  } catch (error) {
     res.status(200).json({
       status: 0,
       code: 200,
@@ -343,6 +456,50 @@ exports.sideData = async (req, res) => {
       status: 1,
       code: 200,
       data: "site updated"
+    })
+    
+  } catch (error) {
+    res.status(200).json({
+      status: 0,
+      code: 200,
+      data: "something went wrong"
+    })
+  }
+}
+
+exports.chart = async (req, res) => {
+  try {
+    let groupStage = {
+      $group: {
+        _id: {
+          month: { $month: "$createdAt" },
+        },
+        totalOrder: {
+          $sum: "$total_price"
+        }
+      }
+    }
+    let project = {
+      $project: {
+        monthName: {
+          $let: {
+            vars: {
+              monthsInString: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            },
+            in: {
+              $arrayElemAt: ['$$monthsInString', '$_id.month']
+            }
+          }
+        },
+        totalOrder: 1
+        }
+      }
+    let monthlyOrderChart = await orderModel.aggregate([groupStage, project])
+
+    res.status(200).json({
+      status: 1,
+      code: 200,
+      data: monthlyOrderChart
     })
     
   } catch (error) {

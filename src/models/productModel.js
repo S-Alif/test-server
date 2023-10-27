@@ -7,7 +7,9 @@ const productSchema = mongoose.Schema({
   detail:{type: String},
   fabric:{type: String},
   feel:{type: String},
+  views: {type: Number, default: 0},
   price:{type: String},
+  published: {type: String, default: "No"},
   category:{type: String}
 }, {timestamps: true, versionKey: false})
 
